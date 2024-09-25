@@ -77,6 +77,7 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 	params := url.Values{}
 	params.Add("code", authCode)
 	params.Add("state", state)
+	params.Add("aud", clientID)
 	redirectURL.RawQuery = params.Encode()
 	http.Redirect(w, r, redirectURL.String(), http.StatusFound)
 }

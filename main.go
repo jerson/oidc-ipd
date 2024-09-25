@@ -35,7 +35,13 @@ func initKeys() error {
 	return nil
 }
 
+func logRequest(r *http.Request) {
+	log.Printf("Request method: %s, URL: %s, Headers: %v", r.Method, r.URL.String(), r.Header)
+}
+
 func discoveryHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
 	response := map[string]interface{}{
 		"issuer":                                issuer,
 		"authorization_endpoint":                issuer + "/authorize",
@@ -50,6 +56,8 @@ func discoveryHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func jwksHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
 	jwk := jose.JSONWebKey{
 		Key:       rsaPublicKey,
 		KeyID:     "1",
@@ -63,6 +71,8 @@ func jwksHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func authorizeHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
 	clientID := r.URL.Query().Get("client_id")
 	redirectURI := r.URL.Query().Get("redirect_uri")
 	state := r.URL.Query().Get("state")
@@ -83,6 +93,8 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func tokenHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
 	r.ParseForm()
 	grantType := r.FormValue("grant_type")
 	code := r.FormValue("code")
@@ -105,7 +117,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"aud": clientID,
+		"aud":          clientID,
 		"access_token": accessToken,
 		"token_type":   "Bearer",
 		"expires_in":   3600,
@@ -115,6 +127,8 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func userInfoHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
 	authHeader := r.Header.Get("Authorization")
 	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
@@ -139,6 +153,8 @@ func generateAccessToken(clientID string) (string, error) {
 		"iat": time.Now().Unix(),
 		"exp": time.Now().Add(time.Hour * 1).Unix(),
 	}
+	log.Printf("Generating access token with claims: %v", claims)
+
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	token.Header["kid"] = "1"
 	tokenString, err := token.SignedString(rsaPrivateKey)
@@ -167,9 +183,13 @@ func generateIDToken(clientID string) (string, error) {
 
 func jsonResponse(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
+	log.Printf("Response: %v", data)
+	err := json.NewEncoder(w).Encode(data)
+	if err != nil {
+		log.Printf("Failed to encode response: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
-
 func main() {
 	err := initKeys()
 	if err != nil {

@@ -206,7 +206,7 @@ func userInfoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := map[string]interface{}{"sub": userName}
+	response := map[string]interface{}{"sub": user}
 
 	scope := "openid email profile address"
 	if strings.Contains(scope, "email") {

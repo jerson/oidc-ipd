@@ -206,13 +206,14 @@ func userInfoHandler(w http.ResponseWriter, r *http.Request) {
 
 	if strings.Contains(scope, "email") {
 		response["email"] = userEmail
-		response["email_verified"] = true
+		response["verified"] = true
 	}
 
 	if strings.Contains(scope, "profile") {
 		response["name"] = userName
-		response["family_name"] = "Doe"
-		response["preferred_username"] = user
+		response["nickname"] = user
+		response["given_name"] = userName
+		response["family_name"] = userLastName
 	}
 
 	if strings.Contains(scope, "address") {

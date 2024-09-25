@@ -20,6 +20,7 @@ import (
 
 var (
 	userName      = os.Getenv("OIDC_USER_NAME")
+	userLastName  = os.Getenv("OIDC_USER_LAST_NAME")
 	userEmail     = os.Getenv("OIDC_USER_EMAIL")
 	user          = os.Getenv("OIDC_USER")
 	issuer        = os.Getenv("OIDC_ISSUER")
@@ -255,12 +256,14 @@ func generateIDToken(clientID, scope string) (string, error) {
 	if strings.Contains(scope, "email") {
 		claims["email"] = userEmail
 		claims["email_verified"] = true
+		claims["verified"] = true
 	}
 
 	if strings.Contains(scope, "profile") {
 		claims["name"] = userName
-		claims["family_name"] = "Doe"
-		claims["preferred_username"] = user
+		claims["nickname"] = user
+		claims["given_name"] = userName
+		claims["family_name"] = userLastName
 	}
 
 	if strings.Contains(scope, "address") {

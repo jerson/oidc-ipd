@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -36,7 +38,28 @@ func initKeys() error {
 }
 
 func logRequest(r *http.Request) {
-	log.Printf("Request method: %s, URL: %s, Headers: %v", r.Method, r.URL.String(), r.Header)
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Failed to read request body: %v", err)
+		return
+	}
+
+	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+	logData := map[string]interface{}{
+		"method":  r.Method,
+		"url":     r.URL.String(),
+		"headers": r.Header,
+		"body":    string(bodyBytes),
+	}
+
+	logDataJSON, err := json.Marshal(logData)
+	if err != nil {
+		log.Printf("Failed to marshal request log data: %v", err)
+		return
+	}
+
+	log.Printf("%s", logDataJSON)
 }
 
 func discoveryHandler(w http.ResponseWriter, r *http.Request) {
@@ -87,15 +110,35 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 	params := url.Values{}
 	params.Add("code", authCode)
 	params.Add("state", state)
-	params.Add("aud", clientID)
 	redirectURL.RawQuery = params.Encode()
 	http.Redirect(w, r, redirectURL.String(), http.StatusFound)
 }
 
+func logFormValues(r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		log.Printf("Failed to parse form: %v", err)
+		return
+	}
+
+	formData := make(map[string]interface{})
+
+	for key, values := range r.Form {
+		formData[key] = values
+	}
+
+	formDataJSON, err := json.Marshal(formData)
+	if err != nil {
+		log.Printf("Failed to marshal form data: %v", err)
+		return
+	}
+
+	log.Printf("%s", formDataJSON)
+}
 func tokenHandler(w http.ResponseWriter, r *http.Request) {
 	logRequest(r)
 
-	r.ParseForm()
+	logFormValues(r)
 	grantType := r.FormValue("grant_type")
 	code := r.FormValue("code")
 	clientID := r.FormValue("client_id")
@@ -105,7 +148,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, err := generateAccessToken(clientID)
+	accessToken, err := generateAccessToken()
 	if err != nil {
 		http.Error(w, "Failed to generate access token", http.StatusInternalServerError)
 		return
@@ -145,10 +188,9 @@ func userInfoHandler(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, response)
 }
 
-func generateAccessToken(clientID string) (string, error) {
+func generateAccessToken() (string, error) {
 	claims := jwt.MapClaims{
 		"sub": username,
-		"aud": clientID,
 		"iss": issuer,
 		"iat": time.Now().Unix(),
 		"exp": time.Now().Add(time.Hour * 1).Unix(),
@@ -183,13 +225,26 @@ func generateIDToken(clientID string) (string, error) {
 
 func jsonResponse(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	log.Printf("Response: %v", data)
-	err := json.NewEncoder(w).Encode(data)
+
+	logData, err := json.Marshal(map[string]interface{}{
+		"data": data,
+	})
 	if err != nil {
-		log.Printf("Failed to encode response: %v", err)
+		log.Printf("Failed to marshal log data: %v", err)
+	} else {
+		log.Printf("%s", logData)
+	}
+
+	err = json.NewEncoder(w).Encode(data)
+	if err != nil {
+		logErrorData, _ := json.Marshal(map[string]interface{}{
+			"error": err.Error(),
+		})
+		log.Printf("%s", logErrorData)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
+
 func main() {
 	err := initKeys()
 	if err != nil {

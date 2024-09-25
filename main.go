@@ -105,6 +105,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
+		"aud": clientID,
 		"access_token": accessToken,
 		"token_type":   "Bearer",
 		"expires_in":   3600,

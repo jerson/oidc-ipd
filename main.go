@@ -220,7 +220,7 @@ func userInfoHandler(w http.ResponseWriter, r *http.Request) {
 	scope := "openid email profile address"
 
 	if strings.Contains(scope, "email") {
-		response["email"] = userName
+		response["email"] = userEmail
 		response["email_verified"] = true
 	}
 
@@ -269,7 +269,7 @@ func generateIDToken(clientID, scope string) (string, error) {
 		"exp": time.Now().Add(time.Hour * 1).Unix(),
 	}
 	if strings.Contains(scope, "email") {
-		claims["email"] = userName
+		claims["email"] = userEmail
 		claims["email_verified"] = true
 	}
 

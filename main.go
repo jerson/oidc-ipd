@@ -22,6 +22,7 @@ var (
 	name          = os.Getenv("OIDC_NAME")
 	username      = os.Getenv("OIDC_USERNAME")
 	issuer        = os.Getenv("OIDC_ISSUER")
+	clientIDApp   = os.Getenv("OIDC_CLIENT_ID")
 	authCode      = os.Getenv("OIDC_AUTH_CODE")
 	rsaPrivateKey *rsa.PrivateKey
 	rsaPublicKey  *rsa.PublicKey
@@ -100,6 +101,9 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.URL.Query().Get("redirect_uri")
 	state := r.URL.Query().Get("state")
 	responseType := r.URL.Query().Get("response_type")
+	if clientID == "" {
+		clientID = clientIDApp
+	}
 
 	if clientID == "" || redirectURI == "" || state == "" || responseType == "" {
 		http.Error(w, "Invalid request parameters", http.StatusBadRequest)
@@ -142,6 +146,9 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 	grantType := r.FormValue("grant_type")
 	code := r.FormValue("code")
 	clientID := r.FormValue("client_id")
+	if clientID == "" {
+		clientID = clientIDApp
+	}
 
 	if grantType != "authorization_code" || code != authCode {
 		http.Error(w, "Invalid grant_type or code", http.StatusBadRequest)
@@ -226,9 +233,7 @@ func generateIDToken(clientID string) (string, error) {
 func jsonResponse(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 
-	logData, err := json.Marshal(map[string]interface{}{
-		"data": data,
-	})
+	logData, err := json.Marshal(data)
 	if err != nil {
 		log.Printf("Failed to marshal log data: %v", err)
 	} else {

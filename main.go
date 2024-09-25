@@ -23,6 +23,7 @@ var (
 	userLastName  = os.Getenv("OIDC_USER_LAST_NAME")
 	userEmail     = os.Getenv("OIDC_USER_EMAIL")
 	userZoneInfo  = os.Getenv("OIDC_USER_ZONE_INFO")
+	userLocale    = os.Getenv("OIDC_USER_LOCALE")
 	user          = os.Getenv("OIDC_USER")
 	issuer        = os.Getenv("OIDC_ISSUER")
 	authCode      = os.Getenv("OIDC_AUTH_CODE")
@@ -219,6 +220,7 @@ func userInfoHandler(w http.ResponseWriter, r *http.Request) {
 		response["given_name"] = userName
 		response["family_name"] = userLastName
 		response["zoneinfo"] = userZoneInfo
+		response["locale"] = userLocale
 	}
 
 	if strings.Contains(scope, "address") {
@@ -264,6 +266,7 @@ func generateIDToken(clientID, scope string) (string, error) {
 		claims["given_name"] = userName
 		claims["family_name"] = userLastName
 		claims["zoneinfo"] = userZoneInfo
+		claims["locale"] = userLocale
 	}
 
 	if strings.Contains(scope, "address") {

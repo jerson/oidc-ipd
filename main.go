@@ -255,7 +255,6 @@ func generateIDToken(clientID, scope string) (string, error) {
 	}
 	if strings.Contains(scope, "email") {
 		claims["email"] = userEmail
-		claims["email_verified"] = true
 		claims["verified"] = true
 	}
 

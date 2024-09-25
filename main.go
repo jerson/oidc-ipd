@@ -28,6 +28,13 @@ var (
 	rsaPrivateKey *rsa.PrivateKey
 	rsaPublicKey  *rsa.PublicKey
 )
+var defaultAddress = map[string]string{
+	"street_address": "123 Main St",
+	"locality":       "Anytown",
+	"region":         "Anystate",
+	"postal_code":    "12345",
+	"country":        "USA",
+}
 var authCodeScopeMap = make(map[string]string)
 var authCodeClientMap = make(map[string]string)
 var authCodeNonceMap = make(map[string]string)
@@ -217,13 +224,7 @@ func userInfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.Contains(scope, "address") {
-		response["address"] = map[string]string{
-			"street_address": "123 Main St",
-			"locality":       "Anytown",
-			"region":         "Anystate",
-			"postal_code":    "12345",
-			"country":        "USA",
-		}
+		response["address"] = defaultAddress
 	}
 	jsonResponse(w, response)
 }
@@ -267,13 +268,7 @@ func generateIDToken(clientID, scope string) (string, error) {
 	}
 
 	if strings.Contains(scope, "address") {
-		claims["address"] = map[string]string{
-			"street_address": "123 Main St",
-			"locality":       "Anytown",
-			"region":         "Anystate",
-			"postal_code":    "12345",
-			"country":        "USA",
-		}
+		claims["address"] = defaultAddress
 	}
 	nonce, ok := authCodeNonceMap[authCode]
 	if ok && nonce != "" {

@@ -22,6 +22,7 @@ var (
 	userName      = os.Getenv("OIDC_USER_NAME")
 	userLastName  = os.Getenv("OIDC_USER_LAST_NAME")
 	userEmail     = os.Getenv("OIDC_USER_EMAIL")
+	userZoneInfo  = os.Getenv("OIDC_USER_ZONE_INFO")
 	user          = os.Getenv("OIDC_USER")
 	issuer        = os.Getenv("OIDC_ISSUER")
 	authCode      = os.Getenv("OIDC_AUTH_CODE")
@@ -29,11 +30,8 @@ var (
 	rsaPublicKey  *rsa.PublicKey
 )
 var defaultAddress = map[string]string{
-	"street_address": "123 Main St",
-	"locality":       "Anytown",
-	"region":         "Anystate",
-	"postal_code":    "12345",
-	"country":        "USA",
+	"region":  "WA",
+	"country": "United States",
 }
 var authCodeScopeMap = make(map[string]string)
 var authCodeClientMap = make(map[string]string)
@@ -210,7 +208,6 @@ func userInfoHandler(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{"sub": userName}
 
 	scope := "openid email profile address"
-
 	if strings.Contains(scope, "email") {
 		response["email"] = userEmail
 		response["verified"] = true
@@ -221,6 +218,7 @@ func userInfoHandler(w http.ResponseWriter, r *http.Request) {
 		response["nickname"] = user
 		response["given_name"] = userName
 		response["family_name"] = userLastName
+		response["zoneinfo"] = userZoneInfo
 	}
 
 	if strings.Contains(scope, "address") {
@@ -265,6 +263,7 @@ func generateIDToken(clientID, scope string) (string, error) {
 		claims["nickname"] = user
 		claims["given_name"] = userName
 		claims["family_name"] = userLastName
+		claims["zoneinfo"] = userZoneInfo
 	}
 
 	if strings.Contains(scope, "address") {

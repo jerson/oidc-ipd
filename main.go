@@ -29,24 +29,7 @@ var (
 )
 var authCodeScopeMap = make(map[string]string)
 var authCodeClientMap = make(map[string]string)
-
-func storeScopeForAuthCode(authCode, scope string) {
-	authCodeScopeMap[authCode] = scope
-}
-
-func getScopeForAuthCode(authCode string) (string, bool) {
-	scope, ok := authCodeScopeMap[authCode]
-	return scope, ok
-}
-
-func storeAuthCodeForClientID(authCode, clientID string) {
-	authCodeClientMap[authCode] = clientID
-}
-
-func getClientIDForAuthCode(authCode string) (string, bool) {
-	clientID, ok := authCodeClientMap[authCode]
-	return clientID, ok
-}
+var authCodeNonceMap = make(map[string]string)
 
 func initKeys() error {
 	var err error
@@ -122,14 +105,15 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 	state := r.URL.Query().Get("state")
 	responseType := r.URL.Query().Get("response_type")
 	scope := r.URL.Query().Get("scope")
+	nonce := r.URL.Query().Get("nonce")
 
 	if clientID == "" || redirectURI == "" || state == "" || responseType == "" || scope == "" {
 		http.Error(w, "Invalid request parameters", http.StatusBadRequest)
 		return
 	}
-
-	storeAuthCodeForClientID(authCode, clientID)
-	storeScopeForAuthCode(authCode, scope)
+	authCodeScopeMap[authCode] = scope
+	authCodeNonceMap[authCode] = nonce
+	authCodeClientMap[authCode] = clientID
 
 	redirectURL, _ := url.Parse(redirectURI)
 	params := url.Values{}
@@ -172,13 +156,13 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientID, ok := getClientIDForAuthCode(code)
+	clientID, ok := authCodeClientMap[code]
 	if !ok {
 		http.Error(w, "Invalid or expired authorization code", http.StatusUnauthorized)
 		return
 	}
 
-	scope, ok := getScopeForAuthCode(code)
+	scope, ok := authCodeNonceMap[code]
 	if !ok {
 		http.Error(w, "Missing scope for authorization code", http.StatusUnauthorized)
 		return
@@ -287,6 +271,10 @@ func generateIDToken(clientID, scope string) (string, error) {
 			"postal_code":    "12345",
 			"country":        "USA",
 		}
+	}
+	nonce, ok := authCodeNonceMap[authCode]
+	if ok && nonce != "" {
+		claims["nonce"] = nonce
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)

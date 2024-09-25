@@ -23,11 +23,30 @@ var (
 	userEmail     = os.Getenv("OIDC_USER_EMAIL")
 	user          = os.Getenv("OIDC_USER")
 	issuer        = os.Getenv("OIDC_ISSUER")
-	clientIDApp   = os.Getenv("OIDC_CLIENT_ID")
 	authCode      = os.Getenv("OIDC_AUTH_CODE")
 	rsaPrivateKey *rsa.PrivateKey
 	rsaPublicKey  *rsa.PublicKey
 )
+var authCodeScopeMap = make(map[string]string)
+var authCodeClientMap = make(map[string]string)
+
+func storeScopeForAuthCode(authCode, scope string) {
+	authCodeScopeMap[authCode] = scope
+}
+
+func getScopeForAuthCode(authCode string) (string, bool) {
+	scope, ok := authCodeScopeMap[authCode]
+	return scope, ok
+}
+
+func storeAuthCodeForClientID(authCode, clientID string) {
+	authCodeClientMap[authCode] = clientID
+}
+
+func getClientIDForAuthCode(authCode string) (string, bool) {
+	clientID, ok := authCodeClientMap[authCode]
+	return clientID, ok
+}
 
 func initKeys() error {
 	var err error
@@ -102,14 +121,15 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.URL.Query().Get("redirect_uri")
 	state := r.URL.Query().Get("state")
 	responseType := r.URL.Query().Get("response_type")
-	if clientID == "" {
-		clientID = clientIDApp
-	}
+	scope := r.URL.Query().Get("scope")
 
-	if clientID == "" || redirectURI == "" || state == "" || responseType == "" {
+	if clientID == "" || redirectURI == "" || state == "" || responseType == "" || scope == "" {
 		http.Error(w, "Invalid request parameters", http.StatusBadRequest)
 		return
 	}
+
+	storeAuthCodeForClientID(authCode, clientID)
+	storeScopeForAuthCode(authCode, scope)
 
 	redirectURL, _ := url.Parse(redirectURI)
 	params := url.Values{}
@@ -146,13 +166,21 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 	logFormValues(r)
 	grantType := r.FormValue("grant_type")
 	code := r.FormValue("code")
-	clientID := r.FormValue("client_id")
-	if clientID == "" {
-		clientID = clientIDApp
-	}
 
 	if grantType != "authorization_code" || code != authCode {
 		http.Error(w, "Invalid grant_type or code", http.StatusBadRequest)
+		return
+	}
+
+	clientID, ok := getClientIDForAuthCode(code)
+	if !ok {
+		http.Error(w, "Invalid or expired authorization code", http.StatusUnauthorized)
+		return
+	}
+
+	scope, ok := getScopeForAuthCode(code)
+	if !ok {
+		http.Error(w, "Missing scope for authorization code", http.StatusUnauthorized)
 		return
 	}
 
@@ -161,14 +189,13 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to generate access token", http.StatusInternalServerError)
 		return
 	}
-	idToken, err := generateIDToken(clientID)
+	idToken, err := generateIDToken(clientID, scope)
 	if err != nil {
 		http.Error(w, "Failed to generate ID token", http.StatusInternalServerError)
 		return
 	}
 
 	response := map[string]interface{}{
-		"aud":          clientID,
 		"access_token": accessToken,
 		"token_type":   "Bearer",
 		"expires_in":   3600,
@@ -188,10 +215,29 @@ func userInfoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := map[string]interface{}{
-		"sub":   user,
-		"name":  userName,
-		"email": userEmail,
+	response := map[string]interface{}{"sub": userName}
+
+	scope := "openid email profile address"
+
+	if strings.Contains(scope, "email") {
+		response["email"] = userName
+		response["email_verified"] = true
+	}
+
+	if strings.Contains(scope, "profile") {
+		response["name"] = userName
+		response["family_name"] = "Doe"
+		response["preferred_username"] = user
+	}
+
+	if strings.Contains(scope, "address") {
+		response["address"] = map[string]string{
+			"street_address": "123 Main St",
+			"locality":       "Anytown",
+			"region":         "Anystate",
+			"postal_code":    "12345",
+			"country":        "USA",
+		}
 	}
 	jsonResponse(w, response)
 }
@@ -214,7 +260,7 @@ func generateAccessToken() (string, error) {
 	return tokenString, nil
 }
 
-func generateIDToken(clientID string) (string, error) {
+func generateIDToken(clientID, scope string) (string, error) {
 	claims := jwt.MapClaims{
 		"sub": user,
 		"aud": clientID,
@@ -222,6 +268,27 @@ func generateIDToken(clientID string) (string, error) {
 		"iat": time.Now().Unix(),
 		"exp": time.Now().Add(time.Hour * 1).Unix(),
 	}
+	if strings.Contains(scope, "email") {
+		claims["email"] = userName
+		claims["email_verified"] = true
+	}
+
+	if strings.Contains(scope, "profile") {
+		claims["name"] = userName
+		claims["family_name"] = "Doe"
+		claims["preferred_username"] = user
+	}
+
+	if strings.Contains(scope, "address") {
+		claims["address"] = map[string]string{
+			"street_address": "123 Main St",
+			"locality":       "Anytown",
+			"region":         "Anystate",
+			"postal_code":    "12345",
+			"country":        "USA",
+		}
+	}
+
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	token.Header["kid"] = "1"
 	tokenString, err := token.SignedString(rsaPrivateKey)

@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	name          = os.Getenv("OIDC_NAME")
-	username      = os.Getenv("OIDC_USERNAME")
+	userName      = os.Getenv("OIDC_USER_NAME")
+	userEmail     = os.Getenv("OIDC_USER_EMAIL")
+	user          = os.Getenv("OIDC_USER")
 	issuer        = os.Getenv("OIDC_ISSUER")
 	clientIDApp   = os.Getenv("OIDC_CLIENT_ID")
 	authCode      = os.Getenv("OIDC_AUTH_CODE")
@@ -188,16 +189,16 @@ func userInfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"sub":   username,
-		"name":  name,
-		"email": username,
+		"sub":   user,
+		"name":  userName,
+		"email": userEmail,
 	}
 	jsonResponse(w, response)
 }
 
 func generateAccessToken() (string, error) {
 	claims := jwt.MapClaims{
-		"sub": username,
+		"sub": user,
 		"iss": issuer,
 		"iat": time.Now().Unix(),
 		"exp": time.Now().Add(time.Hour * 1).Unix(),
@@ -215,7 +216,7 @@ func generateAccessToken() (string, error) {
 
 func generateIDToken(clientID string) (string, error) {
 	claims := jwt.MapClaims{
-		"sub": username,
+		"sub": user,
 		"aud": clientID,
 		"iss": issuer,
 		"iat": time.Now().Unix(),

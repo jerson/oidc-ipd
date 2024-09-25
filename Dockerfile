@@ -11,5 +11,5 @@ FROM alpine:edge
 WORKDIR /app
 
 COPY --from=build /app/oidc-ipd .
-RUN apk --no-cache add ca-certificates tzdata
+RUN apk --no-cache add curl ca-certificates tzdata
 ENTRYPOINT ["/app/oidc-ipd"]

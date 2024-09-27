@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 	jose "gopkg.in/square/go-jose.v2"
 )
 
@@ -26,7 +27,6 @@ var (
 	userLocale    = os.Getenv("OIDC_USER_LOCALE")
 	user          = os.Getenv("OIDC_USER")
 	issuer        = os.Getenv("OIDC_ISSUER")
-	authCode      = os.Getenv("OIDC_AUTH_CODE")
 	rsaPrivateKey *rsa.PrivateKey
 	rsaPublicKey  *rsa.PublicKey
 )
@@ -118,6 +118,7 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request parameters", http.StatusBadRequest)
 		return
 	}
+	authCode := uuid.New().String()
 	authCodeScopeMap[authCode] = scope
 	authCodeNonceMap[authCode] = nonce
 	authCodeClientMap[authCode] = clientID
@@ -158,7 +159,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 	grantType := r.FormValue("grant_type")
 	code := r.FormValue("code")
 
-	if grantType != "authorization_code" || code != authCode {
+	if grantType != "authorization_code" {
 		http.Error(w, "Invalid grant_type or code", http.StatusBadRequest)
 		return
 	}

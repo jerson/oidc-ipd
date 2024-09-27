@@ -34,6 +34,7 @@ var defaultAddress = map[string]string{
 	"region":  "WA",
 	"country": "United States",
 }
+var authCode = uuid.New().String()
 var authCodeScopeMap = make(map[string]string)
 var authCodeClientMap = make(map[string]string)
 var authCodeNonceMap = make(map[string]string)
@@ -118,7 +119,7 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request parameters", http.StatusBadRequest)
 		return
 	}
-	authCode := uuid.New().String()
+	authCode = uuid.New().String()
 	authCodeScopeMap[authCode] = scope
 	authCodeNonceMap[authCode] = nonce
 	authCodeClientMap[authCode] = clientID

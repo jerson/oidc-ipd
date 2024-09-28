@@ -34,7 +34,6 @@ var defaultAddress = map[string]string{
 	"region":  "WA",
 	"country": "United States",
 }
-var authCode = uuid.New().String()
 var authCodeScopeMap = make(map[string]string)
 var authCodeClientMap = make(map[string]string)
 var authCodeNonceMap = make(map[string]string)
@@ -119,7 +118,7 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request parameters", http.StatusBadRequest)
 		return
 	}
-	authCode = uuid.New().String()
+	authCode := uuid.New().String()
 	authCodeScopeMap[authCode] = scope
 	authCodeNonceMap[authCode] = nonce
 	authCodeClientMap[authCode] = clientID
@@ -177,12 +176,18 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	nonce, ok := authCodeNonceMap[code]
+	if !ok {
+		http.Error(w, "Missing scope for authorization code", http.StatusUnauthorized)
+		return
+	}
+
 	accessToken, err := generateAccessToken()
 	if err != nil {
 		http.Error(w, "Failed to generate access token", http.StatusInternalServerError)
 		return
 	}
-	idToken, err := generateIDToken(clientID, scope)
+	idToken, err := generateIDToken(clientID, scope, nonce)
 	if err != nil {
 		http.Error(w, "Failed to generate ID token", http.StatusInternalServerError)
 		return
@@ -249,7 +254,7 @@ func generateAccessToken() (string, error) {
 	return tokenString, nil
 }
 
-func generateIDToken(clientID, scope string) (string, error) {
+func generateIDToken(clientID, scope, nonce string) (string, error) {
 	claims := jwt.MapClaims{
 		"sub": user,
 		"aud": clientID,
@@ -274,8 +279,7 @@ func generateIDToken(clientID, scope string) (string, error) {
 	if strings.Contains(scope, "address") {
 		claims["address"] = defaultAddress
 	}
-	nonce, ok := authCodeNonceMap[authCode]
-	if ok && nonce != "" {
+	if nonce != "" {
 		claims["nonce"] = nonce
 	}
 
